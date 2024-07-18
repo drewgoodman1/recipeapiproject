@@ -48,9 +48,31 @@ class RecipeView(viewsets.ViewSet):
             )
 
     def create(self, request):
+
+        # Get the data from the client's JSON payload
         description = request.data.get("description", None)
 
+        # Create a recipe database row so that there's a pk
         new_recipe = Recipe.objects.create(user=request.user, description=description)
 
         serialized_recipe = RecipeSerializer(new_recipe, context={"request": request})
         return Response(serialized_recipe.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, pk=None):
+        try:
+            recipe = Recipe.objects.get(pk=pk)
+            self.check_object_permissions(request, recipe)  # Ensure user has permission
+
+            # Serialize the recipe with the updated data, partial=True allows partial updates
+            serializer = RecipeSerializer(
+                recipe, data=request.data, partial=True, context={"request": request}
+            )
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        except Recipe.DoesNotExist:
+            return Response(
+                {"error": "Recipe not found"}, status=status.HTTP_404_NOT_FOUND
+            )
