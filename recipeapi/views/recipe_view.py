@@ -1,7 +1,8 @@
 from rest_framework import serializers, status, viewsets
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 from recipeapi.models.recipe import Recipe
-from django.contrib.auth.models import User
 from .ingredient_view import IngredientSerializer
 
 
@@ -19,13 +20,19 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 
 class RecipeView(viewsets.ViewSet):
+    permission_classes = [
+        IsAuthenticated
+    ]  # Ensure the user is authenticated for all actions
 
     def retrieve(self, request, pk=None):
         try:
             recipe = Recipe.objects.get(pk=pk)
-            serialized = RecipeSerializer(
-                recipe, many=False, context={"request": request}
-            )
+            if recipe.user != request.user:
+                raise PermissionDenied(
+                    "You do not have permission to view this recipe."
+                )
+
+            serialized = RecipeSerializer(recipe, context={"request": request})
             return Response(serialized.data, status=status.HTTP_200_OK)
         except Recipe.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
@@ -38,7 +45,10 @@ class RecipeView(viewsets.ViewSet):
     def destroy(self, request, pk=None):
         try:
             recipe = Recipe.objects.get(pk=pk)
-            self.check_object_permissions(request, recipe)
+            if recipe.user != request.user:
+                raise PermissionDenied(
+                    "You do not have permission to delete this recipe."
+                )
             recipe.delete()
             return Response(
                 {"message": f"This recipe {pk} was removed"},
@@ -50,16 +60,10 @@ class RecipeView(viewsets.ViewSet):
             )
 
     def create(self, request):
-
-        # Get the data from the client's JSON payload
         description = request.data.get("description", None)
-
-        # Get the list of ingredients from the request payload
         ingredient_ids = request.data.get("ingredients", [])
 
-        # Create a recipe database row so that there's a pk
         new_recipe = Recipe.objects.create(user=request.user, description=description)
-
         new_recipe.ingredients.set(ingredient_ids)
 
         serialized_recipe = RecipeSerializer(new_recipe, context={"request": request})
@@ -68,36 +72,34 @@ class RecipeView(viewsets.ViewSet):
     def update(self, request, pk=None):
         try:
             recipe = Recipe.objects.get(pk=pk)
-            self.check_object_permissions(request, recipe)  # Ensure user has permission
+            if recipe.user != request.user:
+                raise PermissionDenied(
+                    "You do not have permission to edit this recipe."
+                )
 
-            # Get the data from the client's JSON payload
             description = request.data.get("description", None)
             if description:
                 recipe.description = description
                 recipe.save()
 
-            # Serialize the recipe with the updated data, partial=True allows partial updates
             serializer = RecipeSerializer(
                 recipe, data=request.data, partial=True, context={"request": request}
             )
-
             if serializer.is_valid():
                 serializer.save()
 
-            # Update ingredients if provided
             ingredient_ids = request.data.get("ingredients", None)
             if ingredient_ids is not None:
                 recipe.ingredients.set(ingredient_ids)
 
-                # Re-serialize the recipe to include the updated ingredients
-                serialized_recipe = RecipeSerializer(
-                    recipe, context={"request": request}
-                )
-                return Response(serialized_recipe.data, status=status.HTTP_200_OK)
-            else:
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            serialized_recipe = RecipeSerializer(recipe, context={"request": request})
+            return Response(serialized_recipe.data, status=status.HTTP_200_OK)
 
         except Recipe.DoesNotExist:
             return Response(
                 {"error": "Recipe not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+        except PermissionDenied as permission_denied:
+            return Response(
+                {"error": str(permission_denied)}, status=status.HTTP_403_FORBIDDEN
             )
