@@ -20,7 +20,7 @@
         "pk": 3,
         "fields": {
             "description": "Chicken Curry",
-            "user": 1
+            "user": 2
         }
     },
     {
@@ -36,47 +36,7 @@
         "pk": 5,
         "fields": {
             "description": "Vegetarian Pizza",
-            "user": 2
-        }
-    },
-    {
-        "model": "recipeapi.recipe",
-        "pk": 6,
-        "fields": {
-            "description": "Grilled Cheese Sandwich",
-            "user": 2
-        }
-    },
-    {
-        "model": "recipeapi.recipe",
-        "pk": 7,
-        "fields": {
-            "description": "Caesar Salad",
             "user": 3
-        }
-    },
-    {
-        "model": "recipeapi.recipe",
-        "pk": 8,
-        "fields": {
-            "description": "Lemon Drizzle Cake",
-            "user": 3
-        }
-    },
-    {
-        "model": "recipeapi.recipe",
-        "pk": 9,
-        "fields": {
-            "description": "BBQ Ribs",
-            "user": 3
-        }
-    },
-    {
-        "model": "recipeapi.recipe",
-        "pk": 10,
-        "fields": {
-            "description": "Vegetable Stir Fry",
-            "user": 1
         }
     }
 ]

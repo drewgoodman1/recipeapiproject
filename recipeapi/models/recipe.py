@@ -12,3 +12,7 @@ class Recipe(models.Model):
 
     def __str__(self):
         return self.description
+
+    @property
+    def pictures(self):
+        return self.recipepicture_set.all()
