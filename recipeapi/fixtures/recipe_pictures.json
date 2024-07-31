@@ -1,0 +1,42 @@
+[
+    {
+        "model": "recipeapi.recipepicture",
+        "pk": 1,
+        "fields": {
+            "recipe": 1,
+            "image": "recipe_images/classic_pancakes.jpg"
+        }
+    },
+    {
+        "model": "recipeapi.recipepicture",
+        "pk": 2,
+        "fields": {
+            "recipe": 2,
+            "image": "recipe_images/spaghetti_bolognese.jpg"
+        }
+    },
+    {
+        "model": "recipeapi.recipepicture",
+        "pk": 3,
+        "fields": {
+            "recipe": 3,
+            "image": "recipe_images/chicken_curry.jpg"
+        }
+    },
+    {
+        "model": "recipeapi.recipepicture",
+        "pk": 4,
+        "fields": {
+            "recipe": 4,
+            "image": "recipe_images/beef_tacos.jpg"
+        }
+    },
+    {
+        "model": "recipeapi.recipepicture",
+        "pk": 5,
+        "fields": {
+            "recipe": 5,
+            "image": "recipe_images/vegetarian_pizza.jpg"
+        }
+    }
+]

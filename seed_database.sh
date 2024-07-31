@@ -9,4 +9,5 @@ python3 manage.py migrate recipeapi
 #python3 manage.py loaddata tokens
 python3 manage.py loaddata recipes
 python3 manage.py loaddata ingredients
+python3 manage.py loaddata recipe_pictures
 
