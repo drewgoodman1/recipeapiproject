@@ -17,4 +17,6 @@ urlpatterns = [
     path(
         "register", UserViewSet.as_view({"post": "register_account"}), name="register"
     ),
+    path("recipes/<int:pk>/favorite", RecipeView.as_view({"post": "favorite"})),
+    path("recipes/favorites", RecipeView.as_view({"get": "list_favorites"})),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
