@@ -1,3 +1,5 @@
+import requests
+import urllib.request
 import uuid
 import base64
 from django.core.files.base import ContentFile
@@ -6,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from recipeapi.models.recipe import Recipe
+from recipeapi.models.ingredient import Ingredient  # Import the Ingredient model
 from recipeapi.models.recipe_picture import RecipePicture
 from recipeapi.models.favorite_recipe import FavoriteRecipe
 from .ingredient_view import IngredientSerializer
@@ -144,26 +147,64 @@ class RecipeView(viewsets.ViewSet):
 
     def create(self, request):
         description = request.data.get("description", None)
-        ingredient_ids = request.data.get("ingredients", [])
+        ingredients_data = request.data.get("ingredients", [])  # Correct variable name
         images = request.data.get("images", [])  # Updated to match client-side key
 
-        new_recipe = Recipe.objects.create(user=request.user, description=description)
-        new_recipe.ingredients.set(ingredient_ids)
+        if not description:
+            return Response(
+                {"error": "Description is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        # these will be the pk's of our ingredients for the new recipe
 
-        # Handle image upload
-        if images:
-            for img in images:
-                try:
-                    format, imgstr = img.split(";base64,")
-                    ext = format.split("/")[-1]
-                    file_name = f"{new_recipe.id}-{uuid.uuid4()}.{ext}"
-                    data = ContentFile(base64.b64decode(imgstr), name=file_name)
-                    RecipePicture.objects.create(recipe=new_recipe, image=data)
-                except Exception as e:
-                    print("Error processing image: ", e)  # Debugging line
+        if isinstance(ingredients_data[0], int):
+            new_recipe = Recipe.objects.create(
+                user=request.user, description=description
+            )
+            new_recipe.ingredients.set(ingredients_data)
+        else:
+            # Ensure ingredients exist or create new ones
+            ingredient_ids = []
+            for ingredient_data in ingredients_data:
+                name = ingredient_data.get("name", "").strip()
+                if name:
+                    ingredient, created = Ingredient.objects.get_or_create(name=name)
+                    ingredient_ids.append(ingredient.id)
+            # Create the new recipe once
+            new_recipe = Recipe.objects.create(
+                user=request.user, description=description
+            )
+            new_recipe.ingredients.set(ingredient_ids)
 
-        serialized_recipe = RecipeSerializer(new_recipe, context={"request": request})
-        return Response(serialized_recipe.data, status=status.HTTP_201_CREATED)
+        # Handle image download and storage with requests
+        for image_url in images:
+            try:
+                # Download the image from the URL
+                response = requests.get(
+                    image_url, headers={"User-Agent": "Mozilla/5.0"}
+                )
+                response.raise_for_status()  # Check if the request was successful
+                image_content = response.content
+
+                # Determine file extension
+                ext = image_url.split(".")[
+                    -1
+                ].lower()  # Extract file extension from URL
+                if ext not in ["jpg", "jpeg", "png", "gif"]:
+                    ext = "jpg"  # Default to jpg if the extension is not recognized
+
+                # Save the image to a ContentFile
+                file_name = f"{new_recipe.id}-{uuid.uuid4()}.{ext}"
+                data = ContentFile(image_content, name=file_name)
+
+                # Save the image to the RecipePicture model
+                RecipePicture.objects.create(recipe=new_recipe, image=data)
+            except requests.exceptions.RequestException as e:
+                print(f"Error downloading or processing image: {e}")
+
+            serialized_recipe = RecipeSerializer(
+                new_recipe, context={"request": request}
+            )
+            return Response(serialized_recipe.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, pk=None):
         try:
