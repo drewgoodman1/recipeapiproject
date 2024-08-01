@@ -1,5 +1,4 @@
 import requests
-import urllib.request
 import uuid
 import base64
 from django.core.files.base import ContentFile
@@ -41,6 +40,7 @@ class RecipeSerializer(serializers.ModelSerializer):
         fields = (
             "id",
             "description",
+            "summary",
             "is_owner",
             "ingredients",
             "pictures",
@@ -147,6 +147,7 @@ class RecipeView(viewsets.ViewSet):
 
     def create(self, request):
         description = request.data.get("description", None)
+        summary = request.data.get("summary", None)
         ingredients_data = request.data.get("ingredients", [])  # Correct variable name
         images = request.data.get("images", [])  # Updated to match client-side key
 
@@ -154,57 +155,43 @@ class RecipeView(viewsets.ViewSet):
             return Response(
                 {"error": "Description is required"}, status=status.HTTP_400_BAD_REQUEST
             )
-        # these will be the pk's of our ingredients for the new recipe
+
+        new_recipe = Recipe.objects.create(
+            user=request.user, description=description, summary=summary  # Add summary
+        )
 
         if isinstance(ingredients_data[0], int):
-            new_recipe = Recipe.objects.create(
-                user=request.user, description=description
-            )
             new_recipe.ingredients.set(ingredients_data)
         else:
-            # Ensure ingredients exist or create new ones
             ingredient_ids = []
             for ingredient_data in ingredients_data:
                 name = ingredient_data.get("name", "").strip()
                 if name:
                     ingredient, created = Ingredient.objects.get_or_create(name=name)
                     ingredient_ids.append(ingredient.id)
-            # Create the new recipe once
-            new_recipe = Recipe.objects.create(
-                user=request.user, description=description
-            )
             new_recipe.ingredients.set(ingredient_ids)
 
-        # Handle image download and storage with requests
         for image_url in images:
             try:
-                # Download the image from the URL
                 response = requests.get(
                     image_url, headers={"User-Agent": "Mozilla/5.0"}
                 )
-                response.raise_for_status()  # Check if the request was successful
+                response.raise_for_status()
                 image_content = response.content
 
-                # Determine file extension
-                ext = image_url.split(".")[
-                    -1
-                ].lower()  # Extract file extension from URL
+                ext = image_url.split(".")[-1].lower()
                 if ext not in ["jpg", "jpeg", "png", "gif"]:
-                    ext = "jpg"  # Default to jpg if the extension is not recognized
+                    ext = "jpg"
 
-                # Save the image to a ContentFile
                 file_name = f"{new_recipe.id}-{uuid.uuid4()}.{ext}"
                 data = ContentFile(image_content, name=file_name)
 
-                # Save the image to the RecipePicture model
                 RecipePicture.objects.create(recipe=new_recipe, image=data)
             except requests.exceptions.RequestException as e:
                 print(f"Error downloading or processing image: {e}")
 
-            serialized_recipe = RecipeSerializer(
-                new_recipe, context={"request": request}
-            )
-            return Response(serialized_recipe.data, status=status.HTTP_201_CREATED)
+        serialized_recipe = RecipeSerializer(new_recipe, context={"request": request})
+        return Response(serialized_recipe.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, pk=None):
         try:
@@ -214,18 +201,21 @@ class RecipeView(viewsets.ViewSet):
                     "You do not have permission to edit this recipe."
                 )
 
+            summary = request.data.get(
+                "summary", None
+            )  # Get the summary from the request data
             description = request.data.get("description", None)
             if description:
                 recipe.description = description
+            if summary:
+                recipe.summary = summary  # Add summary
 
             ingredient_ids = request.data.get("ingredients", None)
             if ingredient_ids is not None:
                 recipe.ingredients.set(ingredient_ids)
 
-            # Clear existing images
             RecipePicture.objects.filter(recipe=recipe).delete()
 
-            # Handle new image upload
             images = request.data.get("images", [])
             if images:
                 img = images[0]
