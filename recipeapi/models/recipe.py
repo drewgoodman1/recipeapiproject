@@ -5,6 +5,7 @@ from .ingredient import Ingredient
 
 class Recipe(models.Model):
     description = models.CharField(max_length=255)
+    summary = models.TextField(null=True, blank=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="recipes")
     ingredients = models.ManyToManyField(
         Ingredient, through="RecipeIngredient", related_name="recipes"
